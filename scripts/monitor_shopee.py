@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# monitor_olx.py - Monitoramento específico para OLX
+# monitor_shopee.py - Monitoramento específico para Shopee
 
 import requests
 import json
@@ -9,7 +9,7 @@ import time
 import os
 from bs4 import BeautifulSoup
 
-class MonitorOLXEspecializado:
+class MonitorShopeeEspecializado:
     def __init__(self):
         self.modelo_principal = "ASUS ROG Zephyrus M16"
         self.codigo_modelo = "GU604"
@@ -23,11 +23,15 @@ class MonitorOLXEspecializado:
             "gaming laptop", "keystone ii"
         ]
         self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive'
         }
     
-    def gerar_termos_olx(self):
-        """Termos específicos para busca na OLX"""
+    def gerar_termos_shopee(self):
+        """Termos específicos para busca na Shopee"""
         return [
             "ASUS ROG Zephyrus M16",
             "ROG M16 AniMe Matrix",
@@ -37,54 +41,59 @@ class MonitorOLXEspecializado:
             "ROG Mini LED"
         ]
     
-    def buscar_olx(self):
-        """Busca anúncios na OLX"""
+    def buscar_shopee(self):
+        """Busca anúncios na Shopee"""
         resultados_todos = []
         
-        for termo in self.gerar_termos_olx():
-            print(f"🔍 Buscando OLX: '{termo}'")
+        for termo in self.gerar_termos_shopee():
+            print(f"🔍 Buscando Shopee: '{termo}'")
             
-            # URL da OLX para notebooks
-            url = f"https://www.olx.com.br/informatica/notebooks-netbooks"
+            # URL da Shopee para busca
+            url = "https://shopee.com.br/search"
             params = {
-                'q': termo,
-                'sf': '1'  # Ordenar por mais recentes
+                'keyword': termo,
+                'page': 0,
+                'sortBy': 'ctime'  # Ordenar por mais recentes
             }
             
             try:
                 response = requests.get(url, headers=self.headers, params=params, timeout=15)
                 
                 if response.status_code == 200:
-                    anuncios = self.extrair_anuncios_olx(response.text, termo)
+                    anuncios = self.extrair_anuncios_shopee(response.text, termo)
                     resultados_todos.extend(anuncios)
                 else:
                     print(f"❌ Erro HTTP {response.status_code} para '{termo}'")
                 
-                time.sleep(3)  # Evitar bloqueio
+                time.sleep(4)  # Evitar bloqueio - Shopee é mais restritiva
                 
             except Exception as e:
-                print(f"❌ Erro na busca OLX '{termo}': {e}")
+                print(f"❌ Erro na busca Shopee '{termo}': {e}")
         
-        return self.filtrar_candidatos_olx(resultados_todos)
+        return self.filtrar_candidatos_shopee(resultados_todos)
     
-    def extrair_anuncios_olx(self, html, termo_busca):
-        """Extrai anúncios do HTML da OLX"""
+    def extrair_anuncios_shopee(self, html, termo_busca):
+        """Extrai anúncios do HTML da Shopee"""
         anuncios = []
         
         try:
             soup = BeautifulSoup(html, 'html.parser')
             
-            # Procurar por containers de anúncios (estrutura pode mudar)
-            containers = soup.find_all('div', {'data-ds-component': True})
+            # Shopee usa estrutura com JSON embutido ou elementos específicos
+            # Procurar por containers de produtos
+            containers = soup.find_all('div', {'data-sqe': 'item'}) or soup.find_all('div', class_=re.compile(r'item|product'))
             
             for container in containers:
                 try:
                     # Extrair título
-                    titulo_elem = container.find('h2') or container.find('h3')
+                    titulo_elem = (container.find('div', {'data-sqe': 'name'}) or 
+                                 container.find('span', class_=re.compile(r'title|name')) or
+                                 container.find('div', class_=re.compile(r'title|name')))
                     titulo = titulo_elem.get_text(strip=True) if titulo_elem else ""
                     
                     # Extrair preço
-                    preco_elem = container.find('span', text=re.compile(r'R\$'))
+                    preco_elem = (container.find('span', class_=re.compile(r'price')) or
+                                container.find('div', class_=re.compile(r'price')))
                     preco_str = preco_elem.get_text(strip=True) if preco_elem else "R$ 0"
                     
                     # Extrair link
@@ -92,15 +101,15 @@ class MonitorOLXEspecializado:
                     link = link_elem['href'] if link_elem else ""
                     
                     # Verificar se tem dados válidos
-                    if titulo and any(word in titulo.lower() for word in ['asus', 'rog', 'notebook']):
+                    if titulo and any(word in titulo.lower() for word in ['asus', 'rog', 'notebook', 'laptop']):
                         preco = self.extrair_preco_numerico(preco_str)
                         
                         anuncio = {
                             'titulo': titulo,
                             'preco': preco,
                             'preco_str': preco_str,
-                            'url': f"https://olx.com.br{link}" if link.startswith('/') else link,
-                            'site': 'OLX',
+                            'url': f"https://shopee.com.br{link}" if link.startswith('/') else link,
+                            'site': 'Shopee',
                             'termo_busca': termo_busca,
                             'data_busca': datetime.now().isoformat()
                         }
@@ -110,7 +119,49 @@ class MonitorOLXEspecializado:
                     continue
                     
         except Exception as e:
-            print(f"❌ Erro ao processar HTML OLX: {e}")
+            print(f"❌ Erro ao processar HTML Shopee: {e}")
+            
+        # Se não conseguir pelo scraping normal, tentar método alternativo
+        if not anuncios:
+            anuncios = self.metodo_alternativo_shopee(html, termo_busca)
+        
+        return anuncios
+    
+    def metodo_alternativo_shopee(self, html, termo_busca):
+        """Método alternativo para extrair dados da Shopee"""
+        anuncios = []
+        
+        try:
+            # Procurar por dados JSON embutidos na página
+            soup = BeautifulSoup(html, 'html.parser')
+            scripts = soup.find_all('script', type='application/json')
+            
+            for script in scripts:
+                try:
+                    data = json.loads(script.get_text())
+                    # Navegar pela estrutura JSON para encontrar produtos
+                    # (estrutura pode variar)
+                    if isinstance(data, dict) and 'items' in data:
+                        for item in data['items']:
+                            titulo = item.get('name', '')
+                            preco = item.get('price', 0)
+                            
+                            if titulo and any(word in titulo.lower() for word in ['asus', 'rog']):
+                                anuncio = {
+                                    'titulo': titulo,
+                                    'preco': preco // 100000 if preco > 100000 else preco,  # Shopee usa centavos
+                                    'preco_str': f"R$ {preco // 100000}" if preco > 100000 else f"R$ {preco}",
+                                    'url': f"https://shopee.com.br/item/{item.get('shopid', '')}/{item.get('itemid', '')}",
+                                    'site': 'Shopee',
+                                    'termo_busca': termo_busca,
+                                    'data_busca': datetime.now().isoformat()
+                                }
+                                anuncios.append(anuncio)
+                except:
+                    continue
+                    
+        except Exception as e:
+            print(f"⚠️ Método alternativo Shopee falhou: {e}")
         
         return anuncios
     
@@ -119,8 +170,8 @@ class MonitorOLXEspecializado:
         numeros = re.findall(r'\d+', preco_str.replace('.', '').replace(',', ''))
         return int(''.join(numeros)) if numeros else 0
     
-    def calcular_score_olx(self, titulo, descricao=""):
-        """Calcula score específico para OLX"""
+    def calcular_score_shopee(self, titulo, descricao=""):
+        """Calcula score específico para Shopee"""
         texto_completo = (titulo + " " + descricao).lower()
         score = 0
         caracteristicas_encontradas = []
@@ -162,27 +213,27 @@ class MonitorOLXEspecializado:
         
         return score, caracteristicas_encontradas
     
-    def analisar_suspeita_preco_olx(self, preco):
-        """Análise específica de preço para OLX"""
-        if preco < 2000:
+    def analisar_suspeita_preco_shopee(self, preco):
+        """Análise específica de preço para Shopee"""
+        if preco < 1500:
             return "🚨 EXTREMAMENTE SUSPEITO", 12
-        elif preco < 4000:
+        elif preco < 3500:
             return "⚠️ MUITO SUSPEITO", 10
-        elif preco < 7000:
+        elif preco < 6500:
             return "⚠️ SUSPEITO", 7
-        elif preco < 10000:
+        elif preco < 9000:
             return "💰 PREÇO BAIXO", 4
         else:
             return "💰 PREÇO NORMAL", 0
     
-    def filtrar_candidatos_olx(self, anuncios):
-        """Filtra e pontua candidatos da OLX"""
+    def filtrar_candidatos_shopee(self, anuncios):
+        """Filtra e pontua candidatos da Shopee"""
         candidatos = []
         
         for anuncio in anuncios:
-            score, caracteristicas = self.calcular_score_olx(anuncio['titulo'])
+            score, caracteristicas = self.calcular_score_shopee(anuncio['titulo'])
             preco = anuncio['preco']
-            suspeita_preco, score_preco = self.analisar_suspeita_preco_olx(preco)
+            suspeita_preco, score_preco = self.analisar_suspeita_preco_shopee(preco)
             
             score_total = score + score_preco
             
@@ -194,15 +245,15 @@ class MonitorOLXEspecializado:
                     'score_total': score_total,
                     'caracteristicas_encontradas': caracteristicas,
                     'suspeita_preco': suspeita_preco,
-                    'nivel_alerta': self.definir_nivel_alerta_olx(score_total),
+                    'nivel_alerta': self.definir_nivel_alerta_shopee(score_total),
                     'probabilidade_match': self.calcular_probabilidade(score_total)
                 })
                 candidatos.append(anuncio)
         
         return sorted(candidatos, key=lambda x: x['score_total'], reverse=True)
     
-    def definir_nivel_alerta_olx(self, score_total):
-        """Define nível de alerta para OLX"""
+    def definir_nivel_alerta_shopee(self, score_total):
+        """Define nível de alerta para Shopee"""
         if score_total >= 45:
             return "🚨 ALERTA MÁXIMO"
         elif score_total >= 35:
@@ -213,24 +264,28 @@ class MonitorOLXEspecializado:
             return "ℹ️ MONITORAR"
     
     def calcular_probabilidade(self, score_total):
-        """Calcula probabilidade de match"""
-        if score_total >= 45:
+        """Calcula probabilidade em % de ser o notebook"""
+        if score_total >= 50:
             return "95%+"
-        elif score_total >= 35:
+        elif score_total >= 40:
             return "80-95%"
-        elif score_total >= 25:
+        elif score_total >= 30:
             return "60-80%"
+        elif score_total >= 20:
+            return "40-60%"
         else:
-            return "30-60%"
+            return "< 40%"
     
-    def salvar_resultados_olx(self, candidatos):
-        """Salva resultados específicos da OLX"""
+    def salvar_resultados_shopee(self, candidatos):
+        """Salva resultados em arquivo JSON"""
         if not candidatos:
             return None
             
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         base_dir = os.path.expanduser("~/monitor_asus_rog")
-        filename = f"{base_dir}/resultados/olx_candidatos_{timestamp}.json"
+        filename = f"{base_dir}/resultados/shopee_candidatos_{timestamp}.json"
+        
+        os.makedirs(f"{base_dir}/resultados", exist_ok=True)
         
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(candidatos, f, indent=2, ensure_ascii=False)
@@ -239,14 +294,14 @@ class MonitorOLXEspecializado:
 
 # Execução principal
 if __name__ == "__main__":
-    print("🔍 === MONITOR OLX ESPECIALIZADO ===")
-    print(f"⏰ Iniciando busca OLX - {datetime.now()}")
+    print("🔍 === MONITOR SHOPEE ESPECIALIZADO ===")
+    print(f"⏰ Iniciando busca Shopee - {datetime.now()}")
     
-    monitor = MonitorOLXEspecializado()
-    candidatos = monitor.buscar_olx()
+    monitor = MonitorShopeeEspecializado()
+    candidatos = monitor.buscar_shopee()
     
     if candidatos:
-        print(f"\n🎯 ENCONTRADOS {len(candidatos)} CANDIDATOS NA OLX:")
+        print(f"\n🎯 ENCONTRADOS {len(candidatos)} CANDIDATOS NA SHOPEE:")
         print("=" * 60)
         
         for i, candidato in enumerate(candidatos, 1):
@@ -258,16 +313,16 @@ if __name__ == "__main__":
             print(f"   🌐 URL: {candidato['url']}")
         
         # Salvar resultados
-        arquivo = monitor.salvar_resultados_olx(candidatos)
+        arquivo = monitor.salvar_resultados_shopee(candidatos)
         if arquivo:
-            print(f"\n💾 Resultados OLX salvos em: {arquivo}")
+            print(f"\n💾 Resultados Shopee salvos em: {arquivo}")
         
         # Alertas críticos
         alertas_criticos = [c for c in candidatos if c['score_total'] >= 40]
         if alertas_criticos:
-            print(f"\n🚨 {len(alertas_criticos)} ALERTAS CRÍTICOS NA OLX!")
+            print(f"\n🚨 {len(alertas_criticos)} ALERTAS CRÍTICOS NA SHOPEE!")
             print("⚠️ INVESTIGAR IMEDIATAMENTE!")
             
     else:
-        print("\n✅ Nenhum candidato encontrado na OLX nesta varredura.")
-        
+        print("\n✅ Nenhum candidato encontrado na Shopee nesta varredura.")
+        print("🔄 Próxima verificação recomendada em 2-4 horas.") 

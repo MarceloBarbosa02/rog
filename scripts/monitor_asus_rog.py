@@ -18,7 +18,11 @@ class MonitorASUSROG:
         self.caracteristicas_unicas = [
             "anime matrix", "mini led", "240hz", "2560x1600", 
             "gu604", "2023", "tampa animada", "led matrix",
-            "nebula hdr", "rog intelligent cooling"
+            "nebula hdr", "rog intelligent cooling", "rtx 4070",
+            "rtx 4080", "ryzen 9", "ddr5", "32gb", "1tb ssd",
+            "dolby vision", "wifi 6e", "thunderbolt 4", "qhd", 
+            "16 polegadas", "zephyrus m16", "rog zephyrus",
+            "gaming laptop", "keystone ii"
         ]
         
     def gerar_termos_busca(self):

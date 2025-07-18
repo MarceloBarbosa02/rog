@@ -42,14 +42,44 @@ cat > ./config/config.json << 'CONFIG_EOF'
     "preco_muito_suspeito": 5000,
     "intervalo_horas": 2,
     "email_alertas": "",
-    "sites_monitorar": ["mercadolivre", "olx"],
+    "sites_monitorar": [
+        "mercadolivre",
+        "olx", 
+        "facebook",
+        "shopee",
+        "magazineluiza",
+        "americanas",
+        "casasbahia",
+        "pontofrio",
+        "enjoei",
+        "ebay"
+    ],
     "caracteristicas_unicas": [
         "anime matrix",
         "mini led", 
         "240hz",
         "2560x1600",
         "gu604",
-        "nebula hdr"
+        "nebula hdr",
+        "rog intelligent cooling",
+        "tampa animada",
+        "led matrix",
+        "2023",
+        "rtx 4070",
+        "rtx 4080", 
+        "ryzen 9",
+        "ddr5",
+        "32gb",
+        "1tb ssd",
+        "dolby vision",
+        "wifi 6e",
+        "thunderbolt 4",
+        "qhd",
+        "16 polegadas",
+        "zephyrus m16",
+        "rog zephyrus",
+        "gaming laptop",
+        "keystone ii"
     ]
 }
 CONFIG_EOF
